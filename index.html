@@ -1,555 +1,572 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planejador Financeiro Pessoal</title>
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js via CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Fontes do Google -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Estilo customizado para a fonte e scrollbar */
-        body {
-            font-family: 'Inter', sans-serif;
-            scrollbar-width: thin;
-            scrollbar-color: #4a5568 #1a202c;
-        }
-        body::-webkit-scrollbar {
-            width: 8px;
-        }
-        body::-webkit-scrollbar-track {
-            background: #1a202c;
-        }
-        body::-webkit-scrollbar-thumb {
-            background-color: #4a5568;
-            border-radius: 10px;
-            border: 2px solid #1a202c;
-        }
-        /* Estilo para esconder o input de arquivo padrão */
-        .custom-file-input::-webkit-file-upload-button {
-            visibility: hidden;
-        }
-        .custom-file-input::before {
-            content: 'Selecione o arquivo CSV';
-            display: inline-block;
-            background: linear-gradient(to bottom, #4f46e5, #3730a3);
-            color: white;
-            border: 1px solid #4f46e5;
-            border-radius: 0.375rem;
-            padding: 0.5rem 1rem;
-            outline: none;
-            white-space: nowrap;
-            -webkit-user-select: none;
-            user-select: none;
-            cursor: pointer;
-            font-weight: 500;
-            text-align: center;
-        }
-        .custom-file-input:hover::before {
-            background: linear-gradient(to bottom, #6366f1, #4f46e5);
-        }
-        .custom-file-input:active::before {
-            background: #3730a3;
-        }
-        /* Estilo para o ícone do toggle */
-        .toggle-chevron {
-            transition: transform 0.3s ease;
-        }
-        .toggle-chevron.toggled {
-            transform: rotate(90deg);
-        }
-        /* Estilos para botões de Crédito/Débito */
-        .btn-filter {
-            transition: all 0.2s ease-in-out;
-        }
-        .btn-filter.active {
-            background-color: #FF2057;
-            color: #fff;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-        .btn-filter.inactive {
-            background-color: #374151;
-            color: #d1d5db;
-        }
-    </style>
-</head>
-<body class="bg-gradient-to-r from-indigo-900 to-rose-950 text-gray-200">
+<html lang="pt-BR" class="dark">
 
-    <div class="container mx-auto p-4 xl:p-8">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-bold text-sky-500 mb-2">Avista</h1>
-            <p class="text-lg text-slate-100">Analise suas finanças e compare seus gastos com as melhores práticas.</p>
-        </header>
-
-        <!-- Seção de Inputs (Sempre Visível) -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <!-- Input do Salário -->
-            <div class="bg-gray-800 p-6 rounded-xl shadow-lg">
-                <h2 class="text-2xl font-semibold mb-4 text-blue-700">1. Defina sua Renda Mensal</h2>
-                <div class="flex flex-col gap-4">
-                    <input type="number" id="salarioInput" placeholder="Digite seu salário líquido" class="flex-grow bg-gray-700 border border-gray-600 text-white rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition duration-200">
-                    <button id="analisarSalarioBtn" class="bg-gradient-to-br from-sky-500 to-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 shadow-md">Analisar</button>
-                </div>
-            </div>
-            <!-- Input do Extrato CSV -->
-            <div class="flex flex-col items-center bg-gray-800 p-6 rounded-xl shadow-lg">
-                <div class="flex w-full justify-between items-start space-x-2 mb-4">
-                    <h2 class="text-2xl font-semibold mb-4 text-blue-700">2. Carregue seu Extrato</h2>
-                    <div>
-                        <button id="btnDebito" class="btn-filter active font-bold p-2 rounded-lg">Débito</button>
-                        <button id="btnCredito" class="btn-filter inactive font-bold p-2 rounded-lg">Crédito</button>
-                    </div>
-                </div>
-                    <input type="file" id="extratoCsvInput" accept=".csv" class="custom-file-input text-gray-400 text-sm">
-                    <p class="text-xs text-slate-100 mt-1 mb-4">CSV com 3 colunas (date, title, amount) ou 4 (data, valor, id, descrição).</p>
-                    <button id="processarExtratoBtn" class="bg-gradient-to-br from-sky-500 to-indigo-600 hover:bg-green-700 w-full text-white font-bold py-3 px-6 rounded-lg transition duration-200 shadow-md">Enviar</button>
-                
-            </div>
-        </div>
-
-        <!-- Seção de Resultados (inicialmente oculta) -->
-        <div id="resultados" class="hidden space-y-8">
-            
-            <!-- Layout dos Gráficos -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Coluna da Esquerda: Gráfico de Pizza Duplo -->
-                <div class="bg-gray-800 p-6 rounded-xl shadow-lg flex flex-col min-h-[450px]">
-                    <h3 class="text-xl font-semibold mb-4 text-center">Orçamento Sugerido (interno) vs. Gasto Real (externo)</h3>
-                    <div class="flex-grow relative">
-                        <canvas id="graficoOrcamento"></canvas>
-                    </div>
-                </div>
-
-                <!-- Coluna da Direita: Gráfico de Linha -->
-                <div class="bg-gray-800 p-6 rounded-xl shadow-lg flex flex-col min-h-[450px]">
-                    <h3 class="text-xl font-semibold mb-4 text-center">Distribuição dos Gastos ao Longo do Mês</h3>
-                    <div class="flex-grow relative">
-                        <canvas id="graficoGastosDiarios"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabela Comparativa -->
-            <div class="bg-gray-800 p-6 rounded-xl shadow-lg overflow-x-auto">
-                <h3 class="text-xl font-semibold mb-4">Tabela Comparativa</h3>
-                <table class="w-full text-left">
-                    <thead>
-                        <!-- Cabeçalho será preenchido dinamicamente pelo JS -->
-                    </thead>
-                    <tbody id="tabelaOrcamentoBody">
-                        <!-- Linhas da tabela serão inseridas aqui via JS -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Revisão de Transações com Toggle -->
-            <div class="bg-gray-800 p-6 rounded-xl shadow-lg">
-                <h3 class="text-xl font-semibold mb-4">Revisão e Reclassificação de Transações</h3>
-                <div id="revisaoTransacoesContainer" class="space-y-2">
-                    <!-- Itens de transação agrupados por categoria serão inseridos aqui -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-    // --- CONFIGURAÇÕES E BANCO DE PALAVRAS-CHAVE ---
-    const CATEGORIAS = {
-        'Moradia': { percentual: 0.30, keywords: ['aluguel', 'condominio', 'iptu', 'financiamento imob', 'parcela apto', 'energia', 'luz', 'agua', 'esgoto'] },
-        'Alimentação': { percentual: 0.20, keywords: ['supermercado', 'mercado', 'hiperideal', 'redemix', 'assai', 'atakarejo', 'atakadao', 'restaurante', 'ifood', 'rappi', 'padaria', 'acougue', 'hortifruti', 'lanche'] },
-        'Transporte': { percentual: 0.10, keywords: ['uber', '99', 'taxi', 'gasolina', 'combustivel', 'estacionamento', 'metro', 'onibus', 'passagem', 'ipva', 'seguro auto'] },
-        'Lazer': { percentual: 0.10, keywords: ['cinema', 'show', 'teatro', 'bar', 'festa', 'viagem', 'hotel', 'spotify', 'netflix', 'hbo', 'disney', 'ingresso'] },
-        'Saúde': { percentual: 0.05, keywords: ['farmacia', 'drogaria', 'pague menos', 'raiadrogasilsa', 'medico', 'consulta', 'plano de saude', 'hospital', 'dentista', 'exame'] },
-        'Compras Pessoais': { percentual: 0.05, keywords: ['shopee', 'shein', 'loja', 'roupa', 'sapato', 'livraria', 'amazon', 'mercadolivre', 'mercado livre', 'magazine', 'presente', 'cosmetico'] },
-        'Educação': { percentual: 0.05, keywords: ['escola', 'faculdade', 'curso', 'livro', 'material escolar', 'udemy', 'alura'] },
-        'Poupança/Investimentos': { percentual: 0.15, keywords: ['investimento', 'poupanca', 'tesouro direto', 'cdb', 'acoes', 'aporte'] },
-        'Salário/Renda': { percentual: 0.00, keywords: ['salario', 'credito pix', 'pagamento recebido', 'renda'] },
-        'Outros': { percentual: 0.00, keywords: [] }
-    };
-
-    const CATEGORY_COLORS = {
-        'Moradia': '#1f77b4', 'Alimentação': '#ff7f0e', 'Transporte': '#2ca02c',
-        'Saúde': '#d62728', 'Lazer': '#9467bd', 'Compras Pessoais': '#8c564b',
-        'Educação': '#e377c2', 'Poupança/Investimentos': '#7f7f7f', 'Salário/Renda': '#17becf', 'Outros': '#bcbd22'
-    };
-
-
-    // --- VARIÁVEIS GLOBAIS ---
-    let salarioGlobal = 0;
-    let transacoes = [];
-    let gastosReaisPorCategoria = {};
-    let tipoExtrato = 'debito'; // 'debito' ou 'credito'
-    let graficoOrcamento, graficoGastosDiarios;
-
-
-    // --- ELEMENTOS DO DOM ---
-    const salarioInput = document.getElementById('salarioInput');
-    const analisarSalarioBtn = document.getElementById('analisarSalarioBtn');
-    const extratoCsvInput = document.getElementById('extratoCsvInput');
-    const processarExtratoBtn = document.getElementById('processarExtratoBtn');
-    const btnDebito = document.getElementById('btnDebito');
-    const btnCredito = document.getElementById('btnCredito');
-    const resultadosDiv = document.getElementById('resultados');
-    const tabelaOrcamentoBody = document.getElementById('tabelaOrcamentoBody');
-    const revisaoTransacoesContainer = document.getElementById('revisaoTransacoesContainer');
-
-    // --- EVENT LISTENERS ---
-    analisarSalarioBtn.addEventListener('click', analisarSalario);
-    processarExtratoBtn.addEventListener('click', processarExtrato);
-    btnDebito.addEventListener('click', () => setTipoExtrato('debito'));
-    btnCredito.addEventListener('click', () => setTipoExtrato('credito'));
-
-    // --- FUNÇÕES PRINCIPAIS ---
-    function setTipoExtrato(tipo) {
-        tipoExtrato = tipo;
-        btnDebito.classList.toggle('active', tipo === 'debito');
-        btnDebito.classList.toggle('inactive', tipo !== 'debito');
-        btnCredito.classList.toggle('active', tipo === 'credito');
-        btnCredito.classList.toggle('inactive', tipo !== 'credito');
-        // Reprocessa se já houver um arquivo
-        if (extratoCsvInput.files.length > 0) {
-            processarExtrato();
-        }
-    }
-
-    function analisarSalario() {
-        const salario = parseFloat(salarioInput.value);
-        if (isNaN(salario) || salario <= 0) {
-            alert('Por favor, insira um valor de salário válido.');
-            return;
-        }
-        salarioGlobal = salario;
-        atualizarUI();
-    }
-
-    function processarExtrato() {
-        const file = extratoCsvInput.files[0];
-        if (!file) {
-            alert('Por favor, selecione um arquivo CSV.');
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const csvData = event.target.result;
-            parseCSV(csvData);
-            categorizarTodasTransacoes();
-            atualizarUI();
-        };
-        reader.readAsText(file, 'UTF-8');
-    }
-    
-    function parseCSV(data) {
-        const linhas = data.split('\n').filter(linha => linha.trim() !== '');
-        if (linhas.length < 2) {
-            transacoes = [];
-            return;
-        }
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Planejador Financeiro Pessoal - React</title>
         
-        const header = linhas[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
-        const isThreeColumnFormat = header.includes('date') && header.includes('title') && header.includes('amount');
-        const dataRows = linhas.slice(1);
+        <!-- Tailwind CSS via CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+<!-- React, ReactDOM & Babel via CDN for live transpiling -->
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-        transacoes = dataRows.map((linha, index) => {
-            const partes = linha.split(',');
-            let data, valor, descricao;
-            try {
-                if (isThreeColumnFormat) {
-                    if (partes.length < 3) return null;
-                    data = partes[0].replace(/"/g, '');
-                    descricao = partes.slice(1, -1).join(',').replace(/"/g, '');
-                    valor = parseFloat(partes[partes.length - 1].replace(/"/g, ''));
-                } else {
-                    if (partes.length < 4) return null;
-                    data = partes[0].replace(/"/g, '');
-                    valor = parseFloat(partes[1].replace(/"/g, ''));
-                    descricao = partes.slice(3).join(',').replace(/"/g, '');
+        <!-- Chart.js via CDN -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <!-- Fontes do Google -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+                transition: background-color 0.3s ease, color 0.3s ease;
+            }
+
+            /* Custom file input styles */
+            .custom-file-input::-webkit-file-upload-button {
+                visibility: hidden;
+            }
+
+            .custom-file-input::before {
+                content: 'Selecione o arquivo CSV';
+                display: inline-block;
+                padding: 0.5rem 1rem;
+                outline: none;
+                white-space: nowrap;
+                cursor: pointer;
+                font-weight: 500;
+                text-align: center;
+                border-radius: 0.375rem;
+            }
+        </style>
+        </head>
+
+    <body class="bg-rose-50 dark:bg-[#101827] text-slate-800 dark:text-rose-100">
+
+        <div id="root"></div>
+
+        <script type="text/babel">
+            const { useState, useEffect, useRef } = React;
+
+                    // --- CONFIGURAÇÕES E BANCO DE PALAVRAS-CHAVE ---
+                    const CATEGORIAS = {
+                        'Moradia': { percentual: 0.30, keywords: ['aluguel', 'condominio', 'iptu', 'financiamento imob', 'parcela apto', 'energia', 'luz', 'agua', 'esgoto'] },
+                    'Alimentação': { percentual: 0.20, keywords: ['supermercado', 'mercado', 'restaurante', 'ifood', 'rappi', 'padaria', 'acougue', 'hortifruti', 'lanche'] },
+                    'Transporte': { percentual: 0.10, keywords: ['uber', '99', 'taxi', 'gasolina', 'combustivel', 'estacionamento', 'metro', 'onibus', 'passagem', 'ipva', 'seguro auto'] },
+                    'Lazer': { percentual: 0.10, keywords: ['cinema', 'show', 'teatro', 'bar', 'festa', 'viagem', 'hotel', 'spotify', 'netflix', 'hbo', 'disney', 'ingresso'] },
+                    'Saúde': { percentual: 0.05, keywords: ['farmacia', 'drogaria', 'medico', 'consulta', 'plano de saude', 'hospital', 'dentista', 'exame'] },
+                    'Compras Pessoais': { percentual: 0.05, keywords: ['loja', 'roupa', 'sapato', 'livraria', 'amazon', 'mercado livre', 'magazine', 'presente', 'cosmetico'] },
+                    'Educação': { percentual: 0.05, keywords: ['escola', 'faculdade', 'curso', 'livro', 'material escolar', 'udemy', 'alura'] },
+                    'Poupança/Investimentos': { percentual: 0.15, keywords: ['investimento', 'poupanca', 'tesouro direto', 'cdb', 'acoes', 'aporte'] },
+                    'Salário/Renda': { percentual: 0.00, keywords: ['salario', 'credito pix', 'pagamento recebido', 'renda'] },
+                    'Outros': { percentual: 0.00, keywords: [] }
+                };
+
+                    const THEME_COLORS = {
+                        dark: {
+                            bg: 'bg-[#101827]',
+                            cardBg: 'bg-[#1D2939]',
+                            textPrimary: 'text-rose-100',
+                            textSecondary: 'text-rose-300',
+                            accent: 'text-rose-400',
+                            border: 'border-slate-700',
+                            button: 'bg-rose-600 hover:bg-rose-500',
+                            fileButton: 'bg-rose-600 text-white border-rose-500',
+                            filterActive: 'bg-rose-600 text-white',
+                            filterInactive: 'bg-slate-700 text-rose-300',
+                            chartTicks: '#fecdd3',
+                            chartGrid: '#334155'
+                        },
+                        light: {
+                            bg: 'bg-rose-50',
+                            cardBg: 'bg-white',
+                            textPrimary: 'text-slate-800',
+                            textSecondary: 'text-slate-500',
+                            accent: 'text-rose-600',
+                            border: 'border-rose-200',
+                            button: 'bg-rose-600 hover:bg-rose-700',
+                            fileButton: 'bg-rose-600 text-white border-rose-700',
+                            filterActive: 'bg-rose-600 text-white',
+                            filterInactive: 'bg-rose-200 text-rose-700',
+                            chartTicks: '#475569',
+                            chartGrid: '#f1f5f9'
+                        }
+                    };
+
+                    const CATEGORY_COLORS = {
+                        'Moradia': '#1f77b4', 'Alimentação': '#ff7f0e', 'Transporte': '#2ca02c',
+                        'Saúde': '#d62728', 'Lazer': '#9467bd', 'Compras Pessoais': '#8c564b',
+                        'Educação': '#e377c2', 'Poupança/Investimentos': '#7f7f7f', 'Salário/Renda': '#17becf', 'Outros': '#bcbd22'
+                    };
+
+                    // --- Helper Functions ---
+                    const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                    // --- Main App Component ---
+                    function App() {
+                        const [theme, setTheme] = useState('dark');
+                        const [salario, setSalario] = useState(0);
+                        const [transacoes, setTransacoes] = useState([]);
+                        const [analiseTipo, setAnaliseTipo] = useState('debito');
+                        const [gastosPorCategoria, setGastosPorCategoria] = useState({});
+
+                    const currentTheme = THEME_COLORS[theme];
+
+                    useEffect(() => {
+                        const root = window.document.documentElement;
+                        root.classList.remove('light', 'dark');
+                        root.classList.add(theme);
+                    }, [theme]);
+
+                    useEffect(() => {
+                        const newGastos = {};
+                        Object.keys(CATEGORIAS).forEach(cat => { newGastos[cat] = 0; });
+
+                    transacoes.forEach(transacao => {
+                        if (!newGastos[transacao.categoria]) { newGastos[transacao.categoria] = 0; }
+                        newGastos[transacao.categoria] += Math.abs(transacao.valor);
+                    });
+                    setGastosPorCategoria(newGastos);
+                }, [transacoes]);
+
+                    const handleProcessarSalario = (salarioValor) => {
+                        const valor = parseFloat(salarioValor);
+                        if (!isNaN(valor) && valor > 0) {
+                            setSalario(valor);
+                        }
+                };
+
+                    const handleProcessarExtrato = (file) => {
+                        if (!file) {
+                            alert('Por favor, selecione um arquivo CSV.');
+                            return;
+                        }
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const csvData = event.target.result;
+                        parseCSV(csvData);
+                    };
+                    reader.readAsText(file, 'UTF-8');
+                };
+
+                    const parseCSV = (data) => {
+                        const linhas = data.split('\n').filter(linha => linha.trim() !== '');
+                    if (linhas.length < 2) { setTransacoes([]); return; }
+
+                    const header = linhas[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+                    const isThreeColumnFormat = header.includes('date') && header.includes('title') && header.includes('amount');
+                    const dataRows = linhas.slice(1);
+
+                    const parsedTransacoes = dataRows.map((linha, index) => {
+                        const partes = linha.split(',');
+                        let data, valor, descricao;
+                        try {
+                            if (isThreeColumnFormat) {
+                                if (partes.length < 3) return null;
+                                data = partes[0].replace(/"/g, '');
+                                descricao = partes.slice(1, -1).join(',').replace(/"/g, '');
+                                valor = parseFloat(partes[partes.length - 1].replace(/"/g, ''));
+                            } else {
+                                if (partes.length < 4) return null;
+                                data = partes[0].replace(/"/g, '');
+                                valor = parseFloat(partes[1].replace(/"/g, ''));
+                                descricao = partes.slice(3).join(',').replace(/"/g, '');
+                            }
+                            if (isNaN(valor)) return null;
+                            return { id: index, data, valor, descricao, categoria: 'Outros' };
+                        } catch (e) { return null; }
+                    }).filter(t => {
+                        if (t === null) return false;
+                        if (t.descricao.toLowerCase().includes('pagamento de fatura')) return false;
+                        return analiseTipo === 'debito' ? t.valor < 0 : t.valor > 0;
+                    });
+
+                    const categorizedTransacoes = parsedTransacoes.map(t => ({
+                        ...t,
+                        categoria: categorizarTransacao(t.descricao)
+                    }));
+
+                        setTransacoes(categorizedTransacoes);
+                    };
+
+                    const categorizarTransacao = (descricao) => {
+                        const descricaoLower = descricao.toLowerCase();
+                        for (const categoria in CATEGORIAS) {
+                            const { keywords } = CATEGORIAS[categoria];
+                            if (keywords.some(keyword => descricaoLower.includes(keyword))) {
+                                return categoria;
+                            }
+                        }
+                        return 'Outros';
+                };
+
+                    const handleReclassificar = (transacaoId, novaCategoria) => {
+                        setTransacoes(prevTransacoes =>
+                            prevTransacoes.map(t =>
+                                t.id === transacaoId ? { ...t, categoria: novaCategoria } : t
+                            )
+                        );
+                    };
+
+                    const showResults = salario > 0 || transacoes.length > 0;
+
+                    return (
+                        <div className={`container mx-auto p-4 md:p-8 ${currentTheme.textPrimary}`}>
+                            <Header theme={theme} setTheme={setTheme} currentTheme={currentTheme} />
+                            <InputSection
+                                onProcessarSalario={handleProcessarSalario}
+                                onProcessarExtrato={handleProcessarExtrato}
+                                analiseTipo={analiseTipo}
+                                setAnaliseTipo={setAnaliseTipo}
+                                currentTheme={currentTheme}
+                            />
+                            {showResults && (
+                                <div className="space-y-8 mt-8">
+                                    <ChartsSection
+                                        gastosPorCategoria={gastosPorCategoria}
+                                        transacoes={transacoes}
+                                        currentTheme={currentTheme}
+                                    />
+                                    <ComparisonTable
+                                        salario={salario}
+                                        gastosPorCategoria={gastosPorCategoria}
+                                        analiseTipo={analiseTipo}
+                                        currentTheme={currentTheme}
+                                    />
+                                    <TransactionReview
+                                        transacoes={transacoes}
+                                        onReclassify={handleReclassificar}
+                                        currentTheme={currentTheme}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    );
                 }
-                if (isNaN(valor)) return null;
-                return { id: index, data, valor, descricao, categoria: 'Outros' };
-            } catch (e) {
-                console.error("Erro ao processar linha do CSV:", linha, e);
-                return null;
+
+                    // --- Sub-Components ---
+
+                    function Header({ theme, setTheme, currentTheme }) {
+                        return (
+                            <header className="text-center mb-8 relative">
+                                <h1 className={`text-4xl md:text-5xl font-bold ${currentTheme.accent} mb-2`}>Planejador Financeiro Pessoal</h1>
+                                <p className={`text-lg ${currentTheme.textSecondary}`}>Analise suas finanças e compare seus gastos com as melhores práticas.</p>
+                                <button
+                                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                    className="absolute top-0 right-0 p-2 rounded-full bg-slate-200 dark:bg-slate-700 text-rose-600 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-slate-600 transition-colors"
+                                >
+                                    {theme === 'dark' ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                                    )}
+                                </button>
+                            </header>
+                        );
+                    }
+
+                    function InputSection({ onProcessarSalario, onProcessarExtrato, analiseTipo, setAnaliseTipo, currentTheme }) {
+                        const [salarioInput, setSalarioInput] = useState('');
+
+                    const handleFileChange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            onProcessarExtrato(file);
+                        }
+                };
+
+                    return (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className={`${currentTheme.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.border}`}>
+                                <h2 className="text-2xl font-semibold mb-4">1. Defina sua Renda Mensal</h2>
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <input
+                                        type="number"
+                                        value={salarioInput}
+                                        onChange={(e) => setSalarioInput(e.target.value)}
+                                        placeholder="Digite seu salário líquido"
+                                        className={`flex-grow bg-slate-100 dark:bg-slate-700 border ${currentTheme.border} rounded-lg p-3 focus:ring-2 focus:ring-rose-500 outline-none transition duration-200`}
+                                    />
+                                    <button onClick={() => onProcessarSalario(salarioInput)} className={`${currentTheme.button} text-white font-bold py-3 px-6 rounded-lg transition duration-200 shadow-md`}>Analisar</button>
+                                </div>
+                            </div>
+                            <div className={`${currentTheme.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.border}`}>
+                                <h2 className="text-2xl font-semibold mb-4">2. Carregue seu Extrato</h2>
+                                <div className="flex space-x-2 mb-4">
+                                    <button onClick={() => setAnaliseTipo('debito')} className={`btn-filter flex-1 font-bold py-2 px-4 rounded-lg ${analiseTipo === 'debito' ? currentTheme.filterActive : currentTheme.filterInactive}`}>Débito</button>
+                                    <button onClick={() => setAnaliseTipo('credito')} className={`btn-filter flex-1 font-bold py-2 px-4 rounded-lg ${analiseTipo === 'credito' ? currentTheme.filterActive : currentTheme.filterInactive}`}>Crédito</button>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                                    <input type="file" id="extratoCsvInput" onChange={handleFileChange} accept=".csv" className={`custom-file-input ${currentTheme.textSecondary} text-sm ${currentTheme.fileButton}`} />
+                                </div>
+                                <p className={`text-xs ${currentTheme.textSecondary} mt-2`}>CSV com 3 ou 4 colunas.</p>
+                            </div>
+                        </div>
+                    );
             }
-        }).filter(t => {
-            if (t === null) return false;
-            // Desconsidera pagamentos de fatura
-            if (t.descricao.toLowerCase().includes('pagamento de fatura')) return false;
-            // Filtra por débito ou crédito
-            return tipoExtrato === 'debito' ? t.valor < 0 : t.valor > 0;
-        });
-    }
 
-    function categorizarTodasTransacoes() {
-        transacoes.forEach(transacao => {
-            transacao.categoria = categorizarTransacao(transacao.descricao);
-        });
-        calcularGastosReais();
-    }
+                    function ChartsSection({ gastosPorCategoria, transacoes, currentTheme }) {
+                        return (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className={`${currentTheme.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.border} flex flex-col min-h-[450px]`}>
+                                    <h3 className="text-xl font-semibold mb-4 text-center">Orçamento Sugerido (interno) vs. Gasto Real (externo)</h3>
+                                    <div className="flex-grow relative">
+                                        <DoughnutChart gastosPorCategoria={gastosPorCategoria} currentTheme={currentTheme} />
+                                    </div>
+                                </div>
+                                <div className={`${currentTheme.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.border} flex flex-col min-h-[450px]`}>
+                                    <h3 className="text-xl font-semibold mb-4 text-center">Distribuição dos Gastos ao Longo do Mês</h3>
+                                    <div className="flex-grow relative">
+                                        <BarChart transacoes={transacoes} currentTheme={currentTheme} />
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
 
-    function categorizarTransacao(descricao) {
-        const descricaoLower = descricao.toLowerCase();
-        for (const categoria in CATEGORIAS) {
-            const { keywords } = CATEGORIAS[categoria];
-            if (keywords.some(keyword => descricaoLower.includes(keyword))) {
-                return categoria;
-            }
-        }
-        return 'Outros';
-    }
+                    function DoughnutChart({ gastosPorCategoria, currentTheme }) {
+                        const chartRef = useRef(null);
+                        const chartInstance = useRef(null);
 
-    function calcularGastosReais() {
-        gastosReaisPorCategoria = {};
-        Object.keys(CATEGORIAS).forEach(cat => {
-            gastosReaisPorCategoria[cat] = 0;
-        });
-        transacoes.forEach(transacao => {
-            if (!gastosReaisPorCategoria[transacao.categoria]) {
-                 gastosReaisPorCategoria[transacao.categoria] = 0;
-            }
-            gastosReaisPorCategoria[transacao.categoria] += Math.abs(transacao.valor);
-        });
-    }
+                        useEffect(() => {
+                            if (chartInstance.current) {
+                                chartInstance.current.destroy();
+                            }
+                            const myChartRef = chartRef.current.getContext('2d');
 
-    function reclassificarTransacao(transacaoId, novaCategoria) {
-        const transacao = transacoes.find(t => t.id === transacaoId);
-        if (transacao) {
-            transacao.categoria = novaCategoria;
-            calcularGastosReais();
-            atualizarUI();
-        }
-    }
+                        const categoriasSugeridas = Object.entries(CATEGORIAS).filter(([n, d]) => d.percentual > 0).sort(([, a], [, b]) => b.percentual - a.percentual);
+                        const dataSugerido = categoriasSugeridas.map(([, d]) => d.percentual);
+                        const colorsSugerido = categoriasSugeridas.map(([n]) => CATEGORY_COLORS[n]);
 
-    // --- FUNÇÕES DE ATUALIZAÇÃO DA UI ---
-    function atualizarUI() {
-        if (salarioGlobal <= 0 && transacoes.length === 0) {
-            resultadosDiv.classList.add('hidden');
-            return;
-        }
-        
-        resultadosDiv.classList.remove('hidden');
-        renderTabela();
-        renderGraficos();
-        renderRevisaoTransacoes();
-    }
+                        const totalGastoReal = Object.values(gastosPorCategoria).reduce((a, b) => a + b, 0);
+                        const categoriasReais = Object.entries(gastosPorCategoria).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
+                        const dataReal = categoriasReais.map(([, v]) => totalGastoReal > 0 ? v / totalGastoReal : 0);
+                        const colorsReal = categoriasReais.map(([n]) => CATEGORY_COLORS[n] || CATEGORY_COLORS['Outros']);
 
-    function renderTabela() {
-        const table = document.querySelector('#tabelaOrcamentoBody').closest('table');
-        const thead = table.querySelector('thead');
-        const tbody = table.querySelector('tbody');
-        tbody.innerHTML = ''; 
+                        const labels = [...new Set([...categoriasSugeridas.map(([n]) => n), ...categoriasReais.map(([n]) => n)])];
 
-        const headerTitle = tipoExtrato === 'debito' ? 'Gasto Real (R$)' : 'Recebido Real (R$)';
-        thead.innerHTML = `
-            <tr class="border-b border-gray-600">
-                <th class="p-3">Categoria</th>
-                <th class="p-3 text-center">Sugerido (%)</th>
-                <th class="p-3 text-right">Sugerido (R$)</th>
-                <th class="p-3 text-right">${headerTitle}</th>
-                <th class="p-3 text-right">Diferença (R$)</th>
-            </tr>
-        `;
+                        chartInstance.current = new Chart(myChartRef, {
+                            type: 'doughnut',
+                            data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Gasto Real', data: dataReal, backgroundColor: colorsReal, borderColor: currentTheme.cardBg === 'bg-white' ? '#fff' : '#1D2939', borderWidth: 4 },
+                                { label: 'Sugerido', data: dataSugerido, backgroundColor: colorsSugerido, borderColor: currentTheme.cardBg === 'bg-white' ? '#fff' : '#1D2939', borderWidth: 4 }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '65%',
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: currentTheme.chartTicks, boxWidth: 15, padding: 15 } },
+                                tooltip: { callbacks: { label: (c) => `${c.dataset.label} - ${c.label}: ${(c.raw * 100).toFixed(1)}%` } }
+                            }
+                        }
+                    });
+                        return () => {
+                            if (chartInstance.current) {
+                                chartInstance.current.destroy();
+                            }
+                        };
+                    }, [gastosPorCategoria, currentTheme]);
 
-        if (tipoExtrato === 'debito') {
-            let totalSugerido = 0;
-            let totalGasto = 0;
-            for (const categoria in CATEGORIAS) {
-                if (categoria === 'Poupança/Investimentos' || CATEGORIAS[categoria].percentual === 0) continue;
-                const sugeridoPercent = CATEGORIAS[categoria].percentual;
-                const sugeridoValor = salarioGlobal * sugeridoPercent;
-                const gastoReal = gastosReaisPorCategoria[categoria] || 0;
-                const diferenca = sugeridoValor - gastoReal;
-                totalSugerido += sugeridoValor;
-                totalGasto += gastoReal;
-                const tr = document.createElement('tr');
-                tr.className = 'border-b border-gray-700 hover:bg-gray-700/50 transition-colors';
-                const diferencaColor = diferenca >= 0 ? 'text-green-400' : 'text-rose-500';
-                tr.innerHTML = `<td class="p-3 font-medium flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background-color: ${CATEGORY_COLORS[categoria]}"></span>${categoria}</td><td class="p-3 text-center">${(sugeridoPercent * 100).toFixed(0)}%</td><td class="p-3 text-right">${formatarMoeda(sugeridoValor)}</td><td class="p-3 text-right">${formatarMoeda(gastoReal)}</td><td class="p-3 text-right font-semibold ${diferencaColor}">${formatarMoeda(diferenca)}</td>`;
-                tbody.appendChild(tr);
-            }
-            const poupancaSugerida = salarioGlobal * CATEGORIAS['Poupança/Investimentos'].percentual;
-            const poupancaReal = salarioGlobal - totalGasto;
-            const diferencaPoupanca = poupancaReal - poupancaSugerida;
-            const diferencaPoupancaColor = diferencaPoupanca >= 0 ? 'text-green-400' : 'text-red-400';
-            const trPoupanca = document.createElement('tr');
-            trPoupanca.className = 'border-b border-gray-600 bg-gray-700/50 font-bold';
-            trPoupanca.innerHTML = `<td class="p-3 flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background-color: ${CATEGORY_COLORS['Poupança/Investimentos']}"></span>Poupança/Investimentos</td><td class="p-3 text-center">${(CATEGORIAS['Poupança/Investimentos'].percentual * 100).toFixed(0)}%</td><td class="p-3 text-right">${formatarMoeda(poupancaSugerida)}</td><td class="p-3 text-right">${formatarMoeda(poupancaReal)}</td><td class="p-3 text-right ${diferencaPoupancaColor}">${formatarMoeda(diferencaPoupanca)}</td>`;
-            tbody.appendChild(trPoupanca);
-        } else { // Credit Logic
-            let totalSugerido = 0;
-            let totalRecebido = 0;
-            
-            for (const categoria in CATEGORIAS) {
-                const sugeridoPercent = CATEGORIAS[categoria].percentual;
-                const sugeridoValor = salarioGlobal * sugeridoPercent;
-                const recebidoReal = gastosReaisPorCategoria[categoria] || 0;
+                            return <canvas ref={chartRef} />;
+                        }
 
-                if (sugeridoValor === 0 && recebidoReal === 0) continue;
+                        function BarChart({ transacoes, currentTheme }) {
+                            const chartRef = useRef(null);
+                            const chartInstance = useRef(null);
 
-                const diferenca = - (recebidoReal - sugeridoValor);
-                totalSugerido += sugeridoValor;
-                totalRecebido += recebidoReal;
+                            useEffect(() => {
+                                if (chartInstance.current) {
+                                    chartInstance.current.destroy();
+                                }
+                                const myChartRef = chartRef.current.getContext('2d');
 
-                const tr = document.createElement('tr');
-                tr.className = 'border-b border-gray-700 hover:bg-gray-700/50 transition-colors';
-                const diferencaColor = diferenca >= 0 ? 'text-green-400' : 'text-red-400';
+                                const gastosPorDia = new Array(31).fill(0);
+                                transacoes.forEach(t => {
+                                    const dia = new Date(t.data.split('/').reverse().join('-') + 'T00:00:00').getUTCDate();
+                                    if (!isNaN(dia) && dia >= 1 && dia <= 31) {
+                                        gastosPorDia[dia - 1] += Math.abs(t.valor);
+                                    }
+                                });
 
-                tr.innerHTML = `
-                    <td class="p-3 font-medium flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-full" style="background-color: ${CATEGORY_COLORS[categoria] || CATEGORY_COLORS['Outros']}"></span>
-                        ${categoria}
-                    </td>
-                    <td class="p-3 text-center">${(sugeridoPercent * 100).toFixed(0)}%</td>
-                    <td class="p-3 text-right">${formatarMoeda(sugeridoValor)}</td>
-                    <td class="p-3 text-right">${formatarMoeda(recebidoReal)}</td>
-                    <td class="p-3 text-right font-semibold ${diferencaColor}">${formatarMoeda(diferenca)}</td>
-                `;
-                tbody.appendChild(tr);
-            }
-            
-            const totalDiferenca = totalRecebido - salarioGlobal;
-            const totalDiferencaColor = totalDiferenca >= 0 ? 'text-green-400' : 'text-red-400';
-            const trTotal = document.createElement('tr');
-            trTotal.className = 'border-t-2 border-gray-600 bg-gray-700/50 font-bold';
-            trTotal.innerHTML = `
-                <td class="p-3">Total</td>
-                <td class="p-3 text-center">100%</td>
-                <td class="p-3 text-right">${formatarMoeda(salarioGlobal)}</td>
-                <td class="p-3 text-right">${formatarMoeda(totalRecebido)}</td>
-                <td class="p-3 text-right ${totalDiferencaColor}">${formatarMoeda(totalDiferenca)}</td>
-            `;
-            tbody.appendChild(trTotal);
-        }
-    }
+                                chartInstance.current = new Chart(myChartRef, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: Array.from({ length: 31 }, (_, i) => i + 1),
+                                        datasets: [{
+                                            label: 'Gasto Diário',
+                                            data: gastosPorDia,
+                                backgroundColor: 'rgba(225, 29, 72, 0.7)',
+                                borderColor: 'rgba(225, 29, 72, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `Dia ${c.label}: ${formatarMoeda(c.raw)}` } } },
+                            scales: {
+                                x: { ticks: { color: currentTheme.chartTicks }, grid: { color: currentTheme.chartGrid } },
+                                y: { ticks: { color: currentTheme.chartTicks }, grid: { color: currentTheme.chartGrid } }
+                            }
+                        }
+                    });
+                                return () => {
+                                    if (chartInstance.current) {
+                                        chartInstance.current.destroy();
+                                    }
+                                };
+                            }, [transacoes, currentTheme]);
 
-    function renderGraficos() {
-        // --- Gráfico 1: Doughnut Duplo ---
-        const ctxOrcamento = document.getElementById('graficoOrcamento').getContext('2d');
-        if (graficoOrcamento) graficoOrcamento.destroy();
+                                    return <canvas ref={chartRef} />;
+                                }
 
-        const categoriasSugeridas = Object.entries(CATEGORIAS).filter(([n, d]) => d.percentual > 0).sort(([, a], [, b]) => b.percentual - a.percentual);
-        const labelsSugerido = categoriasSugeridas.map(([n]) => n);
-        const dataSugerido = categoriasSugeridas.map(([, d]) => d.percentual);
-        const colorsSugerido = categoriasSugeridas.map(([n]) => CATEGORY_COLORS[n]);
-        
-        const totalGastoReal = Object.values(gastosReaisPorCategoria).reduce((a, b) => a + b, 0);
-        const categoriasReais = Object.entries(gastosReaisPorCategoria).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
-        const labelsReal = categoriasReais.map(([n]) => n);
-        const dataReal = categoriasReais.map(([, v]) => totalGastoReal > 0 ? v / totalGastoReal : 0);
-        const colorsReal = categoriasReais.map(([n]) => CATEGORY_COLORS[n] || CATEGORY_COLORS['Outros']);
+                                function ComparisonTable({ salario, gastosPorCategoria, analiseTipo, currentTheme }) {
+                                    const headerTitle = analiseTipo === 'debito' ? 'Gasto Real (R$)' : 'Recebido Real (R$)';
 
-        graficoOrcamento = new Chart(ctxOrcamento, {
-            type: 'doughnut',
-            data: {
-                labels: labelsSugerido.length > labelsReal.length ? labelsSugerido : labelsReal,
-                datasets: [
-                    { label: 'Gasto Real', data: dataReal, backgroundColor: colorsReal, borderColor: '#374151', borderWidth: 2 },
-                    { label: 'Sugerido', data: dataSugerido, backgroundColor: colorsSugerido, borderColor: '#374151', borderWidth: 2 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, cutout: '65%',
-                plugins: { legend: { position: 'bottom', labels: { color: '#d1d5db', boxWidth: 15, padding: 15 } },
-                    tooltip: { callbacks: { label: (c) => `${c.dataset.label} - ${c.label}: ${(c.raw * 100).toFixed(1)}%` } }
-                }
-            }
-        });
+                                    let rows = [];
+                                    if (analiseTipo === 'debito') {
+                                        let totalSugerido = 0;
+                                        let totalGasto = 0;
 
-        // --- Gráfico 2: Barras de Gastos Diários ---
-        const ctxGastosDiarios = document.getElementById('graficoGastosDiarios').getContext('2d');
-        if (graficoGastosDiarios) graficoGastosDiarios.destroy();
-        const gastosPorDia = new Array(31).fill(0);
-        transacoes.forEach(t => {
-            const dia = new Date(t.data.split('/').reverse().join('-') + 'T00:00:00').getUTCDate();
-            if (!isNaN(dia) && dia >= 1 && dia <= 31) {
-                gastosPorDia[dia - 1] += Math.abs(t.valor);
-            }
-        });
-        
-        graficoGastosDiarios = new Chart(ctxGastosDiarios, {
-            type: 'bar',
-            data: {
-                labels: Array.from({ length: 31 }, (_, i) => i + 1),
-                datasets: [{
-                    label: 'Gasto Diário', 
-                    data: gastosPorDia,
-                    backgroundColor: 'rgba(79, 70, 229, 0.8)',
-                    borderColor: 'rgba(79, 70, 229, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `Dia ${c.label}: ${formatarMoeda(c.raw)}` } } },
-                scales: { x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } }, y: { ticks: { color: '#d1d5db' }, grid: { color: '#374151' } } }
-            }
-        });
-    }
+                                        Object.keys(CATEGORIAS).forEach(categoria => {
+                                            if (categoria === 'Poupança/Investimentos' || CATEGORIAS[categoria].percentual === 0) return;
+                                            const sugeridoPercent = CATEGORIAS[categoria].percentual;
+                                            const sugeridoValor = salario * sugeridoPercent;
+                                            const gastoReal = gastosPorCategoria[categoria] || 0;
+                                            const diferenca = sugeridoValor - gastoReal;
+                                            totalSugerido += sugeridoValor;
+                                            totalGasto += gastoReal;
+                                            rows.push({ categoria, sugeridoPercent, sugeridoValor, gastoReal, diferenca });
+                                        });
 
-    function renderRevisaoTransacoes() {
-        revisaoTransacoesContainer.innerHTML = '';
-        if (transacoes.length === 0) {
-            revisaoTransacoesContainer.innerHTML = `<p class="text-gray-500">Nenhuma transação para revisar. Carregue seu extrato e selecione ${tipoExtrato}.</p>`;
-            return;
-        }
+                                        const poupancaSugerida = salario * (CATEGORIAS['Poupança/Investimentos'].percentual || 0);
+                                        const poupancaReal = salario - totalGasto;
+                                        const diferencaPoupanca = poupancaReal - poupancaSugerida;
+                                        rows.push({ isTotal: true, categoria: 'Poupança/Investimentos', sugeridoPercent: CATEGORIAS['Poupança/Investimentos'].percentual, sugeridoValor: poupancaSugerida, gastoReal: poupancaReal, diferenca: diferencaPoupanca });
+                                    } else { // Credit Logic
+                                        let totalRecebido = 0;
+                                        Object.keys(gastosPorCategoria).forEach(categoria => {
+                                            const recebidoReal = gastosPorCategoria[categoria] || 0;
+                                            if (recebidoReal > 0) {
+                                                const sugeridoPercent = CATEGORIAS[categoria]?.percentual || 0;
+                                                const sugeridoValor = salario * sugeridoPercent;
+                                                const diferenca = recebidoReal - sugeridoValor;
+                                                totalRecebido += recebidoReal;
+                                                rows.push({ categoria, sugeridoPercent, sugeridoValor, gastoReal: recebidoReal, diferenca });
+                                            }
+                                        });
+                                        const totalDiferenca = totalRecebido - salario;
+                                        rows.push({ isTotal: true, categoria: 'Total', sugeridoPercent: 1, sugeridoValor: salario, gastoReal: totalRecebido, diferenca: totalDiferenca });
+                                    }
+
+                                    return (
+                                        <div className={`${currentTheme.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.border} overflow-x-auto`}>
+                                            <h3 className="text-xl font-semibold mb-4">Tabela Comparativa</h3>
+                                            <table className="w-full text-left">
+                                                <thead>
+                                                    <tr className={`border-b ${currentTheme.border}`}>
+                                                        <th className="p-3">Categoria</th>
+                                                        <th className="p-3 text-center">Sugerido (%)</th>
+                                                        <th className="p-3 text-right">Sugerido (R$)</th>
+                                                        <th className="p-3 text-right">{headerTitle}</th>
+                                                        <th className="p-3 text-right">Diferença (R$)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {rows.map(row => {
+                                                        const diferencaColor = row.diferenca >= 0 ? 'text-green-400' : 'text-red-400';
+                                                        const rowClass = row.isTotal ? `border-t-2 ${currentTheme.border} bg-rose-100/10 dark:bg-slate-800/50 font-bold` : `border-b ${currentTheme.border} hover:bg-rose-100/5 dark:hover:bg-slate-800/50 transition-colors`;
+                                                        return (
+                                                            <tr key={row.categoria} className={rowClass}>
+                                                                <td className="p-3 font-medium flex items-center gap-2">
+                                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[row.categoria] || '#ccc' }}></span>
+                                                                    {row.categoria}
+                                                                </td>
+                                                                <td className="p-3 text-center">{(row.sugeridoPercent * 100).toFixed(0)}%</td>
+                                                                <td className="p-3 text-right">{formatarMoeda(row.sugeridoValor)}</td>
+                                                                <td className="p-3 text-right">{formatarMoeda(row.gastoReal)}</td>
+                                                                <td className={`p-3 text-right font-semibold ${diferencaColor}`}>{formatarMoeda(row.diferenca)}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                }
+
+    function TransactionReview({ transacoes, onReclassify, currentTheme }) {
+        const [openCategory, setOpenCategory] = useState(null);
+
         const transacoesPorCategoria = transacoes.reduce((acc, t) => {
             if (!acc[t.categoria]) acc[t.categoria] = [];
             acc[t.categoria].push(t);
             return acc;
         }, {});
-        for (const categoria of Object.keys(transacoesPorCategoria).sort()) {
-            const transacoesDaCategoria = transacoesPorCategoria[categoria];
-            if (!transacoesDaCategoria || transacoesDaCategoria.length === 0) continue;
-            const accordionItem = document.createElement('div');
-            accordionItem.className = 'bg-gray-700/50 rounded-lg';
-            const totalCategoria = transacoesDaCategoria.reduce((sum, t) => sum + Math.abs(t.valor), 0);
-            const header = document.createElement('button');
-            header.className = 'w-full flex justify-between items-center p-4 text-left font-semibold text-white';
-            header.innerHTML = `<div class="flex items-center gap-3"><span class="w-4 h-4 rounded-full" style="background-color: ${CATEGORY_COLORS[categoria] || '#ccc'}"></span><span>${categoria}</span><span class="text-sm font-normal text-gray-400">(${transacoesDaCategoria.length} transações)</span></div><div class="flex items-center gap-4"><span class="font-bold">${formatarMoeda(totalCategoria)}</span><svg class="w-5 h-5 toggle-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></div>`;
-            const content = document.createElement('div');
-            content.className = 'hidden p-4 border-t border-gray-600 space-y-3';
-            transacoesDaCategoria.forEach(transacao => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'grid grid-cols-1 md:grid-cols-3 gap-4 items-center p-3 bg-gray-600/50 rounded-lg';
-                const valorColor = transacao.valor < 0 ? 'text-red-400' : 'text-green-400';
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'md:col-span-2';
-                infoDiv.innerHTML = `<p class="font-medium text-gray-200">${transacao.descricao}</p><p class="text-sm text-gray-400">${transacao.data} - <span class="font-medium ${valorColor}">${formatarMoeda(Math.abs(transacao.valor))}</span></p>`;
-                const selectDiv = document.createElement('div');
-                const select = document.createElement('select');
-                select.className = 'w-full bg-gray-500 border border-gray-400 text-white rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none';
-                for (const catOption in CATEGORIAS) {
-                    const option = document.createElement('option');
-                    option.value = catOption;
-                    option.textContent = catOption;
-                    if (catOption === transacao.categoria) option.selected = true;
-                    select.appendChild(option);
-                }
-                select.addEventListener('change', (e) => reclassificarTransacao(transacao.id, e.target.value));
-                selectDiv.appendChild(select);
-                itemDiv.appendChild(infoDiv);
-                itemDiv.appendChild(selectDiv);
-                content.appendChild(itemDiv);
-            });
-            header.addEventListener('click', () => {
-                content.classList.toggle('hidden');
-                header.querySelector('.toggle-chevron').classList.toggle('toggled');
-            });
-            accordionItem.appendChild(header);
-            accordionItem.appendChild(content);
-            revisaoTransacoesContainer.appendChild(accordionItem);
-        }
+
+        const handleToggle = (categoria) => {
+            setOpenCategory(openCategory === categoria ? null : categoria);
+        };
+
+        return (
+            <div className={`${currentTheme.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.border}`}>
+                <h3 className="text-xl font-semibold mb-4">Revisão e Reclassificação de Transações</h3>
+                <div className="space-y-2">
+                    {Object.keys(transacoesPorCategoria).sort().map(categoria => {
+                        const transacoesDaCategoria = transacoesPorCategoria[categoria];
+                                const totalCategoria = transacoesDaCategoria.reduce((sum, t) => sum + Math.abs(t.valor), 0);
+                                const isOpen = openCategory === categoria;
+
+                                return (
+                                    <div key={categoria} className={`bg-rose-100/5 dark:bg-slate-800/50 rounded-lg border ${currentTheme.border}`}>
+                                        <button onClick={() => handleToggle(categoria)} className="w-full flex justify-between items-center p-4 text-left font-semibold">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-4 h-4 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[categoria] || '#ccc' }}></span>
+                                                <span>{categoria}</span>
+                                                <span className={`text-sm font-normal ${currentTheme.textSecondary}`}>({transacoesDaCategoria.length} transações)</span>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <span className="font-bold">{formatarMoeda(totalCategoria)}</span>
+                                                <svg className={`w-5 h-5 toggle-chevron ${isOpen ? 'toggled' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"></path></svg>
+                                            </div>
+                                        </button>
+                                        {isOpen && (
+                                            <div className={`p-4 border-t ${currentTheme.border} space-y-3`}>
+                                                {transacoesDaCategoria.map(transacao => (
+                                                    <div key={transacao.id} className={`grid grid-cols-1 md:grid-cols-3 gap-4 items-center p-3 bg-rose-100/10 dark:bg-slate-700/50 rounded-lg`}>
+                                                        <div className="md:col-span-2">
+                                                            <p className="font-medium">{transacao.descricao}</p>
+                                                            <p className={`text-sm ${currentTheme.textSecondary}`}>{transacao.data} - <span className={`font-medium ${transacao.valor < 0 ? 'text-red-400' : 'text-green-400'}`}>{formatarMoeda(Math.abs(transacao.valor))}</span></p>
+                                                        </div>
+                                                        <select
+                                                            value={transacao.categoria}
+                                                            onChange={(e) => onReclassify(transacao.id, e.target.value)}
+                                                            className={`w-full bg-rose-100/20 dark:bg-slate-600 border ${currentTheme.border} rounded-lg p-2 focus:ring-2 focus:ring-rose-500 outline-none`}
+                                                        >
+                                                            {Object.keys(CATEGORIAS).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                </div>
+            </div>
+        );
     }
 
-    // --- FUNÇÕES UTILITÁRIAS ---
-    function formatarMoeda(valor) {
-        return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-    </script>
-</body>
+                    const root = ReactDOM.createRoot(document.getElementById('root'));
+                    root.render(<App />);
+
+                </script>
+            </body>
+
 </html>
